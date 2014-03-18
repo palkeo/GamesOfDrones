@@ -52,9 +52,9 @@ class Zone : public Point
 
     std::vector<Drone*> drones;
     std::vector<Drone*> drones_going;
+    char team;
 
     protected:
-    char team;
     float occupation_score;
     char id;
 
@@ -126,6 +126,7 @@ class Game
     vector< vector<Drone*>* > teams;
     vector<Drone*> drones;
     char my_team;
+    char nb_teams;
     char nb_drones;
     int turn;
 
@@ -136,6 +137,7 @@ class Game
 
         my_team = team;
         nb_drones = nbd;
+        nb_teams = nb_players;
 
         for(char z = 0; z < nb_zones; ++z)
             zones.push_back(new Zone(z));
@@ -230,10 +232,47 @@ class Game
         for(Zone* zone : available_zones)
         {
             // calculate the actions
-            vector<Drone*> my_drones(available_drones.begin(), available_drones.end());
-            sort(my_drones.begin(), my_drones.end(), [&] (Drone* a, Drone* b) { return a->distance(zone) < b->distance(zone); });
+            auto distance_cmp = [&] (Drone* a, Drone* b) { return a-> distance(zone) < b->distance(zone); };
 
-            
+            vector<Drone*> my_drones(available_drones.begin(), available_drones.end());
+            sort(my_drones.begin(), my_drones.end(), distance_cmp);
+
+            vector<Drone*> foe_drones;
+            for(auto t = drones.begin(); t != drones.end(); t++)
+            {
+                if((*t)->team != my_team)
+                    foe_drones.push_back(*t);
+            }
+            sort(foe_drones.begin(), foe_drones.end(), distance_cmp);
+
+            float score = 0;
+            bool is_mine = (my_team == zone->team);
+
+            char my_count = 0;
+            char foe_count = 0;
+            vector<char> foe_count_table;
+            for(char i = 0; i < nb_teams; ++i)
+                foe_count_table.push_back(0);
+
+            for(int i = 1; i < 200 - turn; ++i)
+            {
+                int distance = i * Drone::SPEED + Zone::RADIUS;
+                while((! my_drones.empty()) && my_drones[0]->distance(zone) <= distance)
+                {
+                    my_count++;
+                    my_drones.erase(my_drones.begin());
+                }
+                while((! foe_drones.empty()) && foe_drones[0]->distance(zone) <= distance)
+                {
+                    if(++foe_count_table[foe_drones[0]->team] > foe_count)
+                        foe_count++;
+                    foe_drones.erase(foe_drones.begin());
+                }
+
+                is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
+                score += int(is_mine)
+            }
+
         }
 
         Action best_action;
