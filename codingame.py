@@ -226,7 +226,7 @@ class Game(object):
 
         best_score = 0
         best_action = {}
-        for _, score, needed, zone in sorted(h, key=operator.itemgetter(0), reverse=True):
+        for _, score, needed, zone in sorted(h, key=operator.itemgetter(0), reverse=True)[:3]:
             action, subscore = self.recurse(zones.difference((zone,)), drones.difference(needed))
             subscore += score
             if subscore > best_score:
