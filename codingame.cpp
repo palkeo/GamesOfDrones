@@ -5,6 +5,7 @@
 #include <queue>
 #include <set>
 #include <algorithm>
+#include <chrono>
 
 using namespace std;
 
@@ -50,8 +51,8 @@ class Zone : public Point
     static const int RADIUS;
     static const float OCCUPATION_SCORE_TAU;
 
-    std::vector<Drone*> drones;
-    std::vector<Drone*> drones_going;
+    vector<Drone*> drones;
+    vector<Drone*> drones_going;
     int team;
     float occupation_score;
 
@@ -123,6 +124,8 @@ class Game
 {
     public:
 
+    static const chrono::milliseconds MAX_TIME;
+
     vector<Zone*> zones;
     vector< vector<Drone*>* > teams;
     vector<Drone*> drones;
@@ -131,9 +134,11 @@ class Game
     int nb_drones;
     int turn;
 
-    unsigned int nb_recurse;
+    int nb_recurse;
+    int recurse_width;
+    chrono::time_point<chrono::steady_clock> recurse_time_start;
 
-    Game() : turn(0)
+    Game() : turn(0), recurse_width(5)
     {
         int nb_players, nbd, nb_zones, team;
         cin >> nb_players >> team >> nbd >> nb_zones;
@@ -214,7 +219,7 @@ class Game
         float absolute_score;
         float relative_score;
         Zone* zone;
-        std::vector<Drone*> drones;
+        vector<Drone*> drones;
 
         ZoneAction(float as, float rs, Zone* z) : absolute_score(as), relative_score(rs), zone(z)
         {
@@ -233,16 +238,16 @@ class Game
     struct Action
     {
         float score;
-        std::vector<std::pair<Drone*, Zone*> > moves;
+        vector<pair<Drone*, Zone*> > moves;
 
         Action() : score(0)
         {
         }
     };
     
-    Action recurse(std::set<Zone*> available_zones, std::set<Drone*> available_drones)
+    Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
     {
-        if(available_zones.size() == 0 || available_drones.size() == 0)
+        if(available_zones.size() == 0 || available_drones.size() == 0 || chrono::steady_clock::now() - recurse_time_start > Game::MAX_TIME)
             return Action();
         nb_recurse++;
 
@@ -329,15 +334,15 @@ class Game
 
         Action best_action;
         int i = 0;
-        while((! actions.empty()))
+        while((! actions.empty()) && i < recurse_width)
         {
             ZoneAction action = actions.top();
             actions.pop();
 
-            std::set<Zone*> sub_available_zones = available_zones;
+            set<Zone*> sub_available_zones = available_zones;
             sub_available_zones.erase(action.zone);
 
-            std::set<Drone*> sub_available_drones = available_drones;
+            set<Drone*> sub_available_drones = available_drones;
             for(Drone* j : action.drones)
                 sub_available_drones.erase(j);
 
@@ -360,11 +365,24 @@ class Game
     void play()
     {
         nb_recurse = 0;
-        Action result = recurse(std::set<Zone*>(zones.begin(), zones.end()), std::set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()));
+        recurse_time_start = chrono::steady_clock::now();
+        Action result = recurse(set<Zone*>(zones.begin(), zones.end()), set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()));
+
+        if(chrono::steady_clock::now() - recurse_time_start > Game::MAX_TIME)
+        {
+            if(recurse_width > 5)
+                recurse_width = 5;
+            else if(recurse_width > 2)
+                recurse_width--;
+            cerr << "[Warning] Too long. recurse_width decreased." << endl;
+        }
+        else
+            recurse_width++;
+
         for(int i = 0; i < nb_drones; ++i)
         {
             bool found = false;
-            for(std::pair<Drone*, Zone*> p : result.moves)
+            for(pair<Drone*, Zone*> p : result.moves)
             {
                 if(p.first->id == i)
                 {
@@ -390,7 +408,7 @@ class Game
                 cout << best_zone->x << " " << best_zone->y << endl;
             }
         }
-        cerr << "[Info] Nb recurse : " << nb_recurse << endl;
+        cerr << "[Info] nb_recurse = " << nb_recurse << ", recurse_width = " << recurse_width << endl;
     }
 };
 
@@ -402,7 +420,6 @@ int main()
     {
         g.update();
         g.play();
-        return 0;
     }
     return 0;
 }
@@ -410,4 +427,4 @@ int main()
 const int Zone::RADIUS = 100;
 const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
-
+const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
