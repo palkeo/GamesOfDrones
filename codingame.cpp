@@ -279,23 +279,37 @@ class Game
                 for(int i = 0; i < nb_teams; ++i)
                     foe_count_table.push_back(0);
 
-                for(int i = 1; i < 60; ++i)
+                int t = 1;
+                int tmax = 60;
+
+                while(t < tmax)
                 {
-                    int dist = i * Drone::SPEED + Zone::RADIUS;
-                    while(my_drones_iter != my_drones_iter_end && (*my_drones_iter)->distance(zone) <= dist)
+                    int dist = t * Drone::SPEED + Zone::RADIUS;
+                    float min_dist = 1000000000;
+
+                    while(my_drones_iter != my_drones_iter_end && (min_dist = (*my_drones_iter)->distance(zone)) <= dist)
                     {
                         my_count++;
                         my_drones_iter++;
                     }
-                    while(foe_drones_iter != foe_drones.end() && (*foe_drones_iter)->distance(zone) <= dist)
+
+                    float min_dist_foe = 1000000000;
+                    while(foe_drones_iter != foe_drones.end() && (min_dist_foe = (*foe_drones_iter)->distance(zone)) <= dist)
                     {
                         if(++foe_count_table[foe_drones[0]->team] > foe_count)
                             foe_count++;
                         foe_drones_iter++;
                     }
+                    if(min_dist_foe < min_dist)
+                        min_dist = min_dist_foe;
+
+                    int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
+                    if(t + increment > tmax)
+                        increment = tmax - t;
+                    t += increment;
 
                     is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
-                    score += int(is_mine);
+                    score += int(is_mine)*increment;
                 }
 
                 if(score > last_score)
