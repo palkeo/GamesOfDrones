@@ -52,20 +52,21 @@ class Zone : public Point
 
     std::vector<Drone*> drones;
     std::vector<Drone*> drones_going;
-    char team;
+    int team;
 
     protected:
     float occupation_score;
-    char id;
+    int id;
 
     public:
 
-    Zone(char id_) : occupation_score(1)
+    Zone(int id_, int x_, int y_) : occupation_score(1), id(id_)
     {
-        id = id_;
+        x = x_;
+        y = y_;
     }
 
-    void update(char team_)
+    void update(int team_)
     {
         team = team_;
 
@@ -79,13 +80,13 @@ class Drone : public Point
 
     static const int SPEED;
 
-    char id;
-    char team;
+    int id;
+    int team;
     int old_x, old_y;
     Zone* going_to;
     Zone* inside;
 
-    Drone(char id_, char team_) : id(id_), team(team_), old_x(-1), going_to(NULL), inside(NULL)
+    Drone(int id_, int team_) : id(id_), team(team_), old_x(-1), going_to(NULL), inside(NULL)
     {
     }
 
@@ -125,9 +126,9 @@ class Game
     vector<Zone*> zones;
     vector< vector<Drone*>* > teams;
     vector<Drone*> drones;
-    char my_team;
-    char nb_teams;
-    char nb_drones;
+    int my_team;
+    int nb_teams;
+    int nb_drones;
     int turn;
 
     Game() : turn(0)
@@ -139,13 +140,17 @@ class Game
         nb_drones = nbd;
         nb_teams = nb_players;
 
-        for(char z = 0; z < nb_zones; ++z)
-            zones.push_back(new Zone(z));
+        for(int z = 0; z < nb_zones; ++z)
+        {
+            int x, y;
+            cin >> x >> y;
+            zones.push_back(new Zone(z, x, y));
+        }
 
-        for(char p = 0; p < nb_players; ++p)
+        for(int p = 0; p < nb_players; ++p)
         {
             vector<Drone*>* dt = new vector<Drone*>();
-            for(char d = 0; d < nb_drones; ++d)
+            for(int d = 0; d < nb_drones; ++d)
             {
                 Drone* pt = new Drone(d, p);
                 dt->push_back(pt);
@@ -202,23 +207,34 @@ class Game
 
     // AI BEGIN
     
-    struct Action
+    struct ZoneAction
     {
         float absolute_score;
         float relative_score;
-        std::vector<std::pair<Drone*, Zone*> > moves;
+        Zone* zone;
+        std::vector<Drone*> drones;
 
-        Action(float as, float rs) : absolute_score(as), relative_score(rs)
+        ZoneAction(float as, float rs, Zone* z) : absolute_score(as), relative_score(rs), zone(z)
         {
         }
 
-        Action() : absolute_score(0), relative_score(0)
+        ZoneAction() : absolute_score(0), relative_score(0)
         {
         }
 
-        inline bool operator<(const Action& other) const
+        inline bool operator<(const ZoneAction& other) const
         {
             return relative_score < other.relative_score;
+        }
+    };
+
+    struct Action
+    {
+        float score;
+        std::vector<std::pair<Drone*, Zone*> > moves;
+
+        Action() : score(0)
+        {
         }
     };
     
@@ -227,7 +243,7 @@ class Game
         if(available_zones.size() == 0 || available_drones.size() == 0)
             return Action();
 
-        priority_queue<Action> actions;
+        priority_queue<ZoneAction> actions;
 
         for(Zone* zone : available_zones)
         {
@@ -236,66 +252,97 @@ class Game
 
             vector<Drone*> my_drones(available_drones.begin(), available_drones.end());
             sort(my_drones.begin(), my_drones.end(), distance_cmp);
+            auto my_drones_iter = my_drones.begin();
 
             vector<Drone*> foe_drones;
-            for(auto t = drones.begin(); t != drones.end(); t++)
+            for(auto i = zone->drones_going.begin(); i != zone->drones_going.end(); i++)
             {
-                if((*t)->team != my_team)
-                    foe_drones.push_back(*t);
+                if((*i)->team != my_team)
+                    foe_drones.push_back(*i);
             }
             sort(foe_drones.begin(), foe_drones.end(), distance_cmp);
+            auto foe_drones_iter = foe_drones.begin();
 
             float score = 0;
             bool is_mine = (my_team == zone->team);
 
-            char my_count = 0;
-            char foe_count = 0;
-            vector<char> foe_count_table;
-            for(char i = 0; i < nb_teams; ++i)
+            int my_count = 0;
+            int my_count_done = 0;
+            int foe_count = 0;
+            vector<int> foe_count_table;
+            for(int i = 0; i < nb_teams; ++i)
                 foe_count_table.push_back(0);
 
-            for(int i = 1; i < 200 - turn; ++i)
+            for(int i = 1; i < 50; ++i)
             {
-                int distance = i * Drone::SPEED + Zone::RADIUS;
-                while((! my_drones.empty()) && my_drones[0]->distance(zone) <= distance)
+                int dist = i * Drone::SPEED + Zone::RADIUS;
+                while(my_drones_iter != my_drones.end() && (*my_drones_iter)->distance(zone) <= dist)
                 {
                     my_count++;
-                    my_drones.erase(my_drones.begin());
+                    my_drones_iter++;
                 }
-                while((! foe_drones.empty()) && foe_drones[0]->distance(zone) <= distance)
+                while(foe_drones_iter != foe_drones.end() && (*foe_drones_iter)->distance(zone) <= dist)
                 {
-                    if(++foe_count_table[foe_drones[0]->team] > foe_count)
+                    if(++(foe_count_table[foe_drones[0]->team]) > foe_count)
                         foe_count++;
-                    foe_drones.erase(foe_drones.begin());
+                    foe_drones_iter++;
+                }
+
+                // BUG : Si on a un truc qui m'appartient pas, je le capture, je gagne des points.
+                // Un drone ennemi arrive, ça fait de la merde.
+                if(my_count == 1 && foe_count == 0)
+                    my_count_done = 1;
+
+                if(foe_count > my_count_done)
+                {
+                    if(score > 0)
+                    {
+                        ZoneAction za(score, score / (0.1 + float(my_count_done)), zone);
+                        auto j = my_drones.begin();
+                        for(auto k = 0; k < my_count_done; k++, j++)
+                            za.drones.push_back(*j);
+                        actions.push(za);
+                    }
+                    my_count_done = foe_count;
                 }
 
                 is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
-                score += int(is_mine)
+                score += int(is_mine);
+            }
+
+            if(score > 0)
+            {
+                ZoneAction za(score, score / (0.1 + float(my_count_done)), zone);
+                auto j = my_drones.begin();
+                for(auto k = 0; k < my_count_done; k++, j++)
+                    za.drones.push_back(*j);
+                actions.push(za);
             }
 
         }
 
         Action best_action;
         int i = 0;
-        while((! actions.empty()) && true)
+        while((! actions.empty()) && i < 2)
         {
-            Action action = actions.top();
+            ZoneAction action = actions.top();
             actions.pop();
 
             std::set<Zone*> sub_available_zones = available_zones;
-            sub_available_zones.erase(action.moves[0].second);
+            sub_available_zones.erase(action.zone);
 
             std::set<Drone*> sub_available_drones = available_drones;
-            for(std::pair<Drone*, Zone*> j : action.moves)
-                sub_available_drones.erase(j.first);
+            for(Drone* j : action.drones)
+                sub_available_drones.erase(j);
 
             Action subaction = recurse(sub_available_zones, sub_available_drones);
-            subaction.absolute_score += action.absolute_score;
+            subaction.score += action.absolute_score;
 
-            if(subaction.absolute_score > best_action.absolute_score)
+            if(subaction.score > best_action.score)
             {
                 best_action = subaction;
-                best_action.moves.insert(best_action.moves.end(), action.moves.begin(), action.moves.end());
+                for(Drone* j: action.drones)
+                    best_action.moves.push_back(pair<Drone*, Zone*>(j, action.zone));
             }
             
             i++;
@@ -307,7 +354,7 @@ class Game
     void play()
     {
         Action result = recurse(std::set<Zone*>(zones.begin(), zones.end()), std::set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()));
-        for(char i = 0; i < nb_drones; ++i)
+        for(int i = 0; i < nb_drones; ++i)
         {
             bool found = false;
             for(std::pair<Drone*, Zone*> p : result.moves)
