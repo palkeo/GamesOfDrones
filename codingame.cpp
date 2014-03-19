@@ -273,6 +273,11 @@ class Game
             for(int i = 0; i < nb_teams; ++i)
                 foe_count_table.push_back(0);
 
+            // TODO: Take into account 0 drones.
+
+            
+            // FIXME: Completely bugged.
+
             for(int i = 1; i < 50; ++i)
             {
                 int dist = i * Drone::SPEED + Zone::RADIUS;

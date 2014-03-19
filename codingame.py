@@ -40,6 +40,8 @@ class Zone(Point):
         drones = sorted(drones, key=lambda drone: drone.distance(self))
         s = []
 
+        # TODO: What about no drone ?
+
         for nb_drones in range(1, len(drones) + 1):
             my_drones = drones[:nb_drones]
             my_drones_count = 0
@@ -63,7 +65,7 @@ class Zone(Point):
             # TODO: Add an infinite bidule
 
             if score > 0:
-                s.append((score, drones[:nb_drones]))
+                s.append((score / self.war_weight, drones[:nb_drones]))
 
         return s
       
