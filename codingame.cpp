@@ -125,7 +125,7 @@ class Game
     public:
 
     static const chrono::milliseconds MAX_TIME;
-    static const float SCORE_TAU;
+    static const float TAU;
 
     vector<Zone*> zones;
     vector< vector<Drone*>* > teams;
@@ -245,11 +245,6 @@ class Game
         {
         }
     };
-
-    float sigmoid(float x)
-    {
-        return 1 / (1.f + exp(-2*x));
-    };
     
     Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
     {
@@ -279,13 +274,14 @@ class Game
             for(auto my_drones_iter_end = my_drones.begin(); my_drones_iter_end <= my_drones.end(); my_drones_iter_end++)
             {
                 float score = 0;
+                bool is_mine = (my_team == zone->team);
 
                 auto foe_drones_iter = foe_drones.begin();
                 auto my_drones_iter = my_drones.begin();
 
                 int my_count = 0;
-                float foe_count = 0;
-                vector<float> foe_count_table;
+                int foe_count = 0;
+                vector<int> foe_count_table;
                 for(int i = 0; i < nb_teams; ++i)
                     foe_count_table.push_back(0);
 
@@ -305,9 +301,8 @@ class Game
                     float min_dist_foe = 1000000000;
                     while(foe_drones_iter != foe_drones.end() && (min_dist_foe = (*foe_drones_iter)->distance(zone)) <= dist)
                     {
-                        float s = ((*foe_drones_iter)->going_to == zone) ? exp(zone->distance(*foe_drones_iter)*-0.01) : exp(zone->distance(*foe_drones_iter)*-0.05);
-                        if((foe_count_table[(*foe_drones_iter)->team] += s) > foe_count)
-                            foe_count = foe_count_table[(*foe_drones_iter)->team];
+                        if((foe_count_table[(*foe_drones_iter)->team] += int((*foe_drones_iter)->going_to == zone)) > foe_count)
+                            foe_count++;
                         foe_drones_iter++;
                     }
                     if(min_dist_foe < min_dist)
@@ -315,7 +310,8 @@ class Game
 
                     int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
 
-                    score += sigmoid(my_count-foe_count)*(exp(-t*SCORE_TAU) - exp(-(t+increment)*SCORE_TAU));
+                    is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
+                    score += int(is_mine)*(exp(-t*TAU) - exp(-(t+increment)*TAU));
 
                     t += increment;
                 }
@@ -329,8 +325,8 @@ class Game
                     actions.push(za);
                 }
                 // For speed !
-                //if(is_mine > 1)
-                //    break;
+                if(is_mine)
+                    break;
             }
 
         }
@@ -431,4 +427,4 @@ const int Zone::RADIUS = 100;
 const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
-const float Game::SCORE_TAU = 0.04;
+const float Game::TAU = 0.04;
