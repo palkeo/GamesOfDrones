@@ -125,6 +125,7 @@ class Game
     public:
 
     static const chrono::milliseconds MAX_TIME;
+    static const float TAU;
 
     vector<Zone*> zones;
     vector< vector<Drone*>* > teams;
@@ -247,7 +248,7 @@ class Game
     
     Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
     {
-        if(available_zones.size() == 0 || available_drones.size() == 0 || chrono::steady_clock::now() - recurse_time_start > Game::MAX_TIME)
+        if(available_zones.size() == 0 || available_drones.size() == 0 || chrono::steady_clock::now() - recurse_time_start > MAX_TIME)
             return Action();
         nb_recurse++;
 
@@ -285,10 +286,8 @@ class Game
                     foe_count_table.push_back(0);
 
                 int t = 1;
-                float TAU = 0.05;
-                int tmax = 50;
 
-                while(t < tmax)
+                while(t < 1000000)
                 {
                     int dist = t * Drone::SPEED + Zone::RADIUS;
                     float min_dist = 1000000000;
@@ -310,11 +309,9 @@ class Game
                         min_dist = min_dist_foe;
 
                     int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
-                    if(t + increment > tmax)
-                        increment = tmax - t;
 
                     is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
-                    score += int(is_mine)*increment; //*(exp(-t*TAU) - exp(-(t+increment)*TAU));
+                    score += int(is_mine)*(exp(-t*TAU) - exp(-(t+increment)*TAU));
 
                     t += increment;
                 }
@@ -370,7 +367,7 @@ class Game
         recurse_time_start = chrono::steady_clock::now();
         Action result = recurse(set<Zone*>(zones.begin(), zones.end()), set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()));
 
-        if(chrono::steady_clock::now() - recurse_time_start > Game::MAX_TIME)
+        if(chrono::steady_clock::now() - recurse_time_start > MAX_TIME)
         {
             if(recurse_width > 5)
                 recurse_width = 5;
@@ -430,3 +427,4 @@ const int Zone::RADIUS = 100;
 const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
+const float Game::TAU = 0.04;
