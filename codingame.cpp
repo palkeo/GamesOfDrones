@@ -354,14 +354,19 @@ class Game
             }
             if(! found)
             {
-                Zone* bz = NULL;
+                Zone* best_zone = zones[0];
+                float best_score = numeric_limits<float>::max();
                 for(Zone* z : zones)
                 {
-                    if((!bz) || z->distance(drones[i]) < bz->distance(drones[i]))
-                        bz = z;
+                    float score = int(z->team == my_team)*10000 + z->distance(drones[i]);
+                    if(score < best_score)
+                    {
+                        best_zone = z;
+                        best_score = score;
+                    }
                 }
                 cerr << "[Warning] Drone " << i << " have nothing to do." << endl;
-                cout << bz->x << " " << bz->y << endl;
+                cout << best_zone->x << " " << best_zone->y << endl;
             }
         }
     }
