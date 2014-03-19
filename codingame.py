@@ -65,7 +65,7 @@ class Zone(Point):
             # TODO: Add an infinite bidule
 
             if score > 0:
-                s.append((score / self.war_weight, drones[:nb_drones]))
+                s.append((score, drones[:nb_drones]))
 
         return s
       

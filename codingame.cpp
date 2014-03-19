@@ -53,9 +53,9 @@ class Zone : public Point
     std::vector<Drone*> drones;
     std::vector<Drone*> drones_going;
     int team;
+    float occupation_score;
 
     protected:
-    float occupation_score;
     int id;
 
     public:
@@ -248,11 +248,10 @@ class Game
         for(Zone* zone : available_zones)
         {
             // calculate the actions
-            auto distance_cmp = [&] (Drone* a, Drone* b) { return a-> distance(zone) < b->distance(zone); };
+            auto distance_cmp = [zone] (Drone* a, Drone* b) { return a-> distance(zone) < b->distance(zone); };
 
             vector<Drone*> my_drones(available_drones.begin(), available_drones.end());
             sort(my_drones.begin(), my_drones.end(), distance_cmp);
-            auto my_drones_iter = my_drones.begin();
 
             vector<Drone*> foe_drones;
             for(auto i = zone->drones_going.begin(); i != zone->drones_going.end(); i++)
@@ -261,74 +260,56 @@ class Game
                     foe_drones.push_back(*i);
             }
             sort(foe_drones.begin(), foe_drones.end(), distance_cmp);
-            auto foe_drones_iter = foe_drones.begin();
 
-            float score = 0;
-            bool is_mine = (my_team == zone->team);
-
-            int my_count = 0;
-            int my_count_done = 0;
-            int foe_count = 0;
-            vector<int> foe_count_table;
-            for(int i = 0; i < nb_teams; ++i)
-                foe_count_table.push_back(0);
-
-            // TODO: Take into account 0 drones.
-
-            
-            // FIXME: Completely bugged.
-
-            for(int i = 1; i < 50; ++i)
+            float last_score = 0;
+            for(auto my_drones_iter_end = my_drones.begin(); my_drones_iter_end <= my_drones.end(); my_drones_iter_end++)
             {
-                int dist = i * Drone::SPEED + Zone::RADIUS;
-                while(my_drones_iter != my_drones.end() && (*my_drones_iter)->distance(zone) <= dist)
-                {
-                    my_count++;
-                    my_drones_iter++;
-                }
-                while(foe_drones_iter != foe_drones.end() && (*foe_drones_iter)->distance(zone) <= dist)
-                {
-                    if(++(foe_count_table[foe_drones[0]->team]) > foe_count)
-                        foe_count++;
-                    foe_drones_iter++;
-                }
+                float score = 0;
+                bool is_mine = (my_team == zone->team);
 
-                // BUG : Si on a un truc qui m'appartient pas, je le capture, je gagne des points.
-                // Un drone ennemi arrive, ça fait de la merde.
-                if(my_count == 1 && foe_count == 0)
-                    my_count_done = 1;
+                auto foe_drones_iter = foe_drones.begin();
+                auto my_drones_iter = my_drones.begin();
 
-                if(foe_count > my_count_done)
+                int my_count = 0;
+                int foe_count = 0;
+                vector<int> foe_count_table;
+                for(int i = 0; i < nb_teams; ++i)
+                    foe_count_table.push_back(0);
+
+                for(int i = 1; i < 60; ++i)
                 {
-                    if(score > 0)
+                    int dist = i * Drone::SPEED + Zone::RADIUS;
+                    while(my_drones_iter != my_drones_iter_end && (*my_drones_iter)->distance(zone) <= dist)
                     {
-                        ZoneAction za(score, score / (0.1 + float(my_count_done)), zone);
-                        auto j = my_drones.begin();
-                        for(auto k = 0; k < my_count_done; k++, j++)
-                            za.drones.push_back(*j);
-                        actions.push(za);
+                        my_count++;
+                        my_drones_iter++;
                     }
-                    my_count_done = foe_count;
+                    while(foe_drones_iter != foe_drones.end() && (*foe_drones_iter)->distance(zone) <= dist)
+                    {
+                        if(++foe_count_table[foe_drones[0]->team] > foe_count)
+                            foe_count++;
+                        foe_drones_iter++;
+                    }
+
+                    is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
+                    score += int(is_mine);
                 }
 
-                is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
-                score += int(is_mine);
-            }
-
-            if(score > 0)
-            {
-                ZoneAction za(score, score / (0.1 + float(my_count_done)), zone);
-                auto j = my_drones.begin();
-                for(auto k = 0; k < my_count_done; k++, j++)
-                    za.drones.push_back(*j);
-                actions.push(za);
+                if(score > last_score)
+                {
+                    last_score = score;
+                    ZoneAction za(score, score / float(my_count ? my_count : 0.1), zone);
+                    for(auto j = my_drones.begin(); j != my_drones_iter_end; j++)
+                        za.drones.push_back(*j);
+                    actions.push(za);
+                }
             }
 
         }
 
         Action best_action;
         int i = 0;
-        while((! actions.empty()) && i < 2)
+        while((! actions.empty()))
         {
             ZoneAction action = actions.top();
             actions.pop();
@@ -373,8 +354,14 @@ class Game
             }
             if(! found)
             {
+                Zone* bz = NULL;
+                for(Zone* z : zones)
+                {
+                    if((!bz) || z->distance(drones[i]) < bz->distance(drones[i]))
+                        bz = z;
+                }
                 cerr << "[Warning] Drone " << i << " have nothing to do." << endl;
-                cout << "2000 900" << endl;
+                cout << bz->x << " " << bz->y << endl;
             }
         }
     }
