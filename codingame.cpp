@@ -316,6 +316,8 @@ class Game
                     t += increment;
                 }
 
+                score /= zone->occupation_score;
+
                 if(score > last_score)
                 {
                     last_score = score;
@@ -427,4 +429,4 @@ const int Zone::RADIUS = 100;
 const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
-const float Game::TAU = 0.04;
+const float Game::TAU = 0.02;
