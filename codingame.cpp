@@ -91,7 +91,7 @@ class Drone : public Point
     {
     }
 
-    void update(int nx, int ny)
+    void update(int nx, int ny, const vector<Zone*>& zones)
     {
         if(old_x == -1)
         {
@@ -105,6 +105,26 @@ class Drone : public Point
         }
         x = nx;
         y = ny;
+
+        inside = NULL;
+
+        Zone* mz = NULL;
+        float md = numeric_limits<float>::max();
+        for(Zone* zone : zones)
+        {
+            if(distance(zone) <= Zone::RADIUS)
+            {
+                inside = zone;
+                zone->drones.push_back(this);
+            }
+            if(distance_direction_point(zone) <= md)
+            {
+                md = distance_direction_point(zone);
+                mz = zone;
+            }
+        }
+        mz->drones_going.push_back(this);
+        going_to = mz;
     }
 
     float distance_direction_point(const Point* point) const
@@ -128,6 +148,7 @@ class Game
     static const float TAU;
 
     vector<Zone*> zones;
+    set<Zone*> main_zones;
     vector< vector<Drone*>* > teams;
     vector<Drone*> drones;
     int my_team;
@@ -153,6 +174,25 @@ class Game
             int x, y;
             cin >> x >> y;
             zones.push_back(new Zone(z, x, y));
+        }
+
+        float best_score = numeric_limits<float>::max();
+        for(auto zi1 = zones.begin(); zi1 != zones.end(); zi1++)
+        for(auto zi2 = zi1 + 1; zi2 != zones.end(); zi2++)
+        for(auto zi3 = zi2 + 1; zi3 != zones.end(); zi3++)
+        {
+            float c1 = (*zi1)->distance(*zi2);
+            float c2 = (*zi2)->distance(*zi3);
+            float c3 = (*zi1)->distance(*zi3);
+            float score = c1 + c2 + c3 + 2*max(c1, max(c2, c3));
+            if(score < best_score)
+            {
+                main_zones.clear();
+                main_zones.insert(*zi1);
+                main_zones.insert(*zi2);
+                main_zones.insert(*zi3);
+                best_score = score;
+            }
         }
 
         for(int p = 0; p < nb_players; ++p)
@@ -189,26 +229,7 @@ class Game
             {
                 int nx, ny;
                 cin >> nx >> ny;
-                drone->update(nx, ny);
-
-                drone->inside = NULL;
-                Zone* mz = NULL;
-                float md = numeric_limits<float>::max();
-                for(Zone* zone : zones)
-                {
-                    if(zone->distance(drone) <= Zone::RADIUS)
-                    {
-                        drone->inside = zone;
-                        zone->drones.push_back(drone);
-                    }
-                    if(drone->distance_direction_point(zone) <= md)
-                    {
-                        md = drone->distance_direction_point(zone);
-                        mz = zone;
-                    }
-                }
-                drone->going_to = mz;
-                mz->drones_going.push_back(drone);
+                drone->update(nx, ny, zones);
             }
         }
     }
@@ -248,8 +269,6 @@ class Game
     
     Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
     {
-        if(available_zones.size() == 0 || available_drones.size() == 0 || chrono::steady_clock::now() - recurse_time_start > MAX_TIME)
-            return Action();
         nb_recurse++;
 
         priority_queue<ZoneAction> actions;
@@ -301,7 +320,7 @@ class Game
                     float min_dist_foe = 1000000000;
                     while(foe_drones_iter != foe_drones.end() && (min_dist_foe = (*foe_drones_iter)->distance(zone)) <= dist)
                     {
-                        if((foe_count_table[(*foe_drones_iter)->team] += int((*foe_drones_iter)->going_to == zone)) > foe_count)
+                        if((*foe_drones_iter)->going_to == zone && ++foe_count_table[(*foe_drones_iter)->team] > foe_count)
                             foe_count++;
                         foe_drones_iter++;
                     }
@@ -317,6 +336,10 @@ class Game
                 }
 
                 score /= zone->occupation_score;
+                /*
+                if(main_zones.count(zone))
+                    score *= 10;
+                */
 
                 if(score > last_score)
                 {
@@ -333,10 +356,12 @@ class Game
 
         }
 
-        Action best_action;
+        Action best_action = Action();
         int i = 0;
         while((! actions.empty()) && i < recurse_width)
         {
+            i++;
+
             ZoneAction action = actions.top();
             actions.pop();
 
@@ -347,6 +372,9 @@ class Game
             for(Drone* j : action.drones)
                 sub_available_drones.erase(j);
 
+            if(sub_available_zones.empty() || sub_available_drones.empty() || chrono::steady_clock::now() - recurse_time_start > MAX_TIME)
+                continue;
+
             Action subaction = recurse(sub_available_zones, sub_available_drones);
             subaction.score += action.absolute_score;
 
@@ -356,8 +384,6 @@ class Game
                 for(Drone* j: action.drones)
                     best_action.moves.push_back(pair<Drone*, Zone*>(j, action.zone));
             }
-            
-            i++;
         }
 
         return best_action;
