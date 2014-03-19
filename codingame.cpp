@@ -131,6 +131,8 @@ class Game
     int nb_drones;
     int turn;
 
+    unsigned int nb_recurse;
+
     Game() : turn(0)
     {
         int nb_players, nbd, nb_zones, team;
@@ -242,6 +244,7 @@ class Game
     {
         if(available_zones.size() == 0 || available_drones.size() == 0)
             return Action();
+        nb_recurse++;
 
         priority_queue<ZoneAction> actions;
 
@@ -291,7 +294,7 @@ class Game
                     }
 
                     float min_dist_foe = 1000000000;
-                    while(foe_drones_iter != foe_drones.end() && (*foe_drones_iter)->distance(zone) <= dist)
+                    while(foe_drones_iter != foe_drones.end() && (min_dist_foe = (*foe_drones_iter)->distance(zone)) <= dist)
                     {
                         if(++foe_count_table[foe_drones[0]->team] > foe_count)
                             foe_count++;
@@ -317,6 +320,9 @@ class Game
                         za.drones.push_back(*j);
                     actions.push(za);
                 }
+                // For speed !
+                if(is_mine)
+                    break;
             }
 
         }
@@ -353,6 +359,7 @@ class Game
 
     void play()
     {
+        nb_recurse = 0;
         Action result = recurse(std::set<Zone*>(zones.begin(), zones.end()), std::set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()));
         for(int i = 0; i < nb_drones; ++i)
         {
@@ -383,6 +390,7 @@ class Game
                 cout << best_zone->x << " " << best_zone->y << endl;
             }
         }
+        cerr << "[Info] Nb recurse : " << nb_recurse << endl;
     }
 };
 
@@ -394,6 +402,7 @@ int main()
     {
         g.update();
         g.play();
+        return 0;
     }
     return 0;
 }
