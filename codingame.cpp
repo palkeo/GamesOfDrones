@@ -295,17 +295,14 @@ class Game
             float last_score = 0;
             for(unsigned char my_count_max = 0; my_count_max <= available_drones.size(); my_count_max++)
             {
-                auto drones_iter = zone->drones_sorted.begin();
                 float score = 0;
-
                 bool is_mine = (my_team == zone->team);
-                bool is_mine_full = is_mine;
+
+                auto drones_iter = zone->drones_sorted.begin();
+
                 unsigned char my_count = 0;
-                unsigned char my_count_full = 0;
                 unsigned char foe_count = 0;
                 unsigned char foe_count_table[4] = {0, 0, 0, 0};
-                unsigned char foe_count_full = 0;
-                unsigned char foe_count_table_full[4] = {0, 0, 0, 0};
 
                 int t = 1;
 
@@ -318,14 +315,11 @@ class Game
                     {
                         if((*drones_iter)->team == my_team)
                         {
-                            my_count_full++;
                             if(my_count < my_count_max && available_drones.count(*drones_iter))
                                 my_count++;
                         }
                         else
                         {
-                            if(++foe_count_table_full[(*drones_iter)->team] > foe_count_full)
-                                foe_count_full++;
                             if((*drones_iter)->going_to == zone && ++foe_count_table[(*drones_iter)->team] > foe_count)
                                 foe_count++;
                         }
@@ -335,9 +329,7 @@ class Game
                     int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
 
                     is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
-                    is_mine_full = my_count_full > foe_count_full || (my_count_full == foe_count_full && is_mine_full);
-
-                    score += (int(is_mine)+int(is_mine_full))*(exp(-t*TAU) - exp(-(t+increment)*TAU));
+                    score += int(is_mine)*(exp(-t*TAU) - exp(-(t+increment)*TAU));
 
                     t += increment;
                 }
