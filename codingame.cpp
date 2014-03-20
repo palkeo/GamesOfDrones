@@ -156,7 +156,7 @@ class Game
     int recurse_width;
     chrono::time_point<chrono::steady_clock> recurse_time_start;
 
-    Game(bool print_dump_) : turn(0), print_dump(print_dump_), recurse_width(5)
+    Game(bool print_dump_) : turn(0), print_dump(print_dump_), recurse_width(10)
     {
         cin >> nb_teams >> my_team >> nb_drones >> nb_zones;
 
