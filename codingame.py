@@ -40,13 +40,11 @@ class Zone(Point):
         drones = sorted(drones, key=lambda drone: drone.distance(self))
         s = []
 
-        # TODO: What about no drone ?
-
-        for nb_drones in range(1, len(drones) + 1):
+        for nb_drones in range(0, len(drones) + 1):
             my_drones = drones[:nb_drones]
             my_drones_count = 0
             foe_drones_count = [0 for _ in self.game.teams]
-            foe_drones = sorted(filter(lambda d: d.team != self.game.my_team and d.zone_objective() == self, self.game.drones), key=lambda d: d.distance(self))
+            foe_drones = sorted(filter(lambda d: d.team != self.game.my_team and (d.zone_objective() == self or d.nearest_zone == self), self.game.drones), key=lambda d: d.distance(self))
             score = 0
             is_mine = self.team == self.game.my_team
 
@@ -87,6 +85,7 @@ class Drone(Zone):
         self.drone_id = drone_id
         self.old_x, self.old_y = None, None
         self._zone_objective = None
+        self.nearest_zone = None
         super().__init__(*args, **kwargs)
 
     def __repr__(self):
@@ -96,6 +95,9 @@ class Drone(Zone):
         self.old_x, self.old_y = self.x or x, self.y or y
         self.x, self.y = x, y
         self._zone_objective = None
+        for z in self.game.zones:
+            if self.nearest_zone is None or self.distance(self.nearest_zone) > self.distance(z):
+                self.nearest_zone = z
     
     def direction(self):
         return Point(self.x - self.old_x, self.y - self.old_y)
@@ -231,7 +233,7 @@ class Game(object):
 
         for zone in zones:
             for score, needed in zone.drones_needed(drones):
-                rscore = score / len(needed)
+                rscore = score / (len(needed) or 0.1)
                 h.append((rscore, score, needed, zone))
 
         #print(len(zones), len(drones), sorted(h, key=operator.itemgetter(0), reverse=True), file=sys.stderr)
