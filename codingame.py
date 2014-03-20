@@ -148,6 +148,8 @@ class Game(object):
         
         self.my_team = i # set my team id
         self.turn = 0
+
+        self.recurse_width = 3
         
         # Enter details for each zone
         self.zones = []
@@ -201,7 +203,14 @@ class Game(object):
             if default_zone is None or z.war_weight > default_zone.war_weight:
                 default_zone = z
 
+        self.nb_recurse = 0
         best_action, best_score = self.recurse(self.zones, self.teams[self.my_team])
+        if (datetime.datetime.now() - self.turn_start).total_seconds() > 0.09:
+            print("[Warning] Too long. recurse_width reduced.", file=sys.stderr)
+            self.recurse_width = 2
+        else:
+            self.recurse_width += 1
+        print("[Info] nb_recurse = %s, recurse_width = %s" % (self.nb_recurse, self.recurse_width), file=sys.stderr)
 
         for drone in self.teams[self.my_team]:
             try:
@@ -214,6 +223,7 @@ class Game(object):
     def recurse(self, zones, drones):
         if not zones or not drones or (datetime.datetime.now() - self.turn_start).total_seconds() > 0.09:
             return {}, 0
+        self.nb_recurse += 1
 
         drones = set(drones)
         zones = set(zones)
@@ -228,7 +238,7 @@ class Game(object):
 
         best_score = 0
         best_action = {}
-        for _, score, needed, zone in sorted(h, key=operator.itemgetter(0), reverse=True)[:3]:
+        for _, score, needed, zone in sorted(h, key=operator.itemgetter(0), reverse=True)[:self.recurse_width]:
             action, subscore = self.recurse(zones.difference((zone,)), drones.difference(needed))
             subscore += score
             if subscore > best_score:
