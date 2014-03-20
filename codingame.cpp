@@ -300,9 +300,7 @@ class Game
 
                 int my_count = 0;
                 int foe_count = 0;
-                vector<int> foe_count_table;
-                for(int i = 0; i < nb_teams; ++i)
-                    foe_count_table.push_back(0);
+                char foe_count_table[4] = {0, 0, 0, 0};
 
                 int t = 1;
 
