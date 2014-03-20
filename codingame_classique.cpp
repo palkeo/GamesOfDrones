@@ -141,10 +141,9 @@ class Game
     public:
 
     static const chrono::milliseconds MAX_TIME;
-    static const float TAU;
+    static const int SIMULATION_TURNS;
 
     vector<Zone*> zones;
-    set<Zone*> main_zones;
     vector< vector<Drone*>* > teams;
     vector<Drone*> drones;
     int my_team;
@@ -166,25 +165,6 @@ class Game
             int x, y;
             cin >> x >> y;
             zones.push_back(new Zone(z, x, y));
-        }
-
-        float best_score = numeric_limits<float>::max();
-        for(auto zi1 = zones.begin(); zi1 != zones.end(); zi1++)
-        for(auto zi2 = zi1 + 1; zi2 != zones.end(); zi2++)
-        for(auto zi3 = zi2 + 1; zi3 != zones.end(); zi3++)
-        {
-            float c1 = (*zi1)->distance(*zi2);
-            float c2 = (*zi2)->distance(*zi3);
-            float c3 = (*zi1)->distance(*zi3);
-            float score = c1 + c2 + c3 + 2*max(c1, max(c2, c3));
-            if(score < best_score)
-            {
-                main_zones.clear();
-                main_zones.insert(*zi1);
-                main_zones.insert(*zi2);
-                main_zones.insert(*zi3);
-                best_score = score;
-            }
         }
 
         for(int p = 0; p < nb_teams; ++p)
@@ -315,7 +295,7 @@ class Game
 
                 int t = 1;
 
-                while(t < 1000000)
+                while(t < SIMULATION_TURNS)
                 {
                     int dist = t * Drone::SPEED + Zone::RADIUS;
                     float min_dist = 1000000000;
@@ -336,18 +316,13 @@ class Game
                     }
 
                     int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
+                    if(t + increment > SIMULATION_TURNS)
+                        increment = SIMULATION_TURNS - t;
 
                     is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
-                    score += int(is_mine)*(exp(-t*TAU) - exp(-(t+increment)*TAU));
-
+                    score += int(is_mine)*increment;
                     t += increment;
                 }
-
-                //score /= zone->occupation_score;
-                /*
-                if(main_zones.count(zone))
-                    score *= 10;
-                */
 
                 if(score > last_score)
                 {
@@ -466,7 +441,7 @@ class Game
                 float best_score = numeric_limits<float>::max();
                 for(Zone* z : zones)
                 {
-                    float score = int(z->team == my_team)*10000 + z->distance(drones[i]);
+                    float score = (int(z->team == my_team)*1000 + z->distance(drones[i]))*z->occupation_score;
                     if(score < best_score)
                     {
                         best_zone = z;
@@ -500,4 +475,4 @@ const int Zone::RADIUS = 100;
 const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
-const float Game::TAU = 0.02;
+const int Game::SIMULATION_TURNS = 50;
