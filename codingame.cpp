@@ -282,6 +282,7 @@ class Game
 
         priority_queue<ZoneAction> actions;
 
+        int mt = NB_TURNS - turn;
         for(Zone* zone : available_zones)
         {
             // calculate the actions
@@ -300,7 +301,7 @@ class Game
 
                 int t = 1;
 
-                while(t < NB_TURNS)
+                while(t < mt)
                 {
                     int dist = t * Drone::SPEED + Zone::RADIUS;
                     float min_dist = 1000000000;
@@ -321,13 +322,14 @@ class Game
                     }
 
                     int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
-                    if(increment + t > NB_TURNS)
-                        increment = NB_TURNS - t;
+                    if(increment + t > mt)
+                        increment = mt - t;
 
                     is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
 
                     int nt = increment + t;
-                    score += int(is_mine)*(nt-t + (t*t-nt*nt)/float(2*NB_TURNS));
+                    score += int(is_mine)*(nt-t + (t*t-nt*nt)/float(2*mt));
+                    //*(exp(-t*TAU) - exp(-(t+increment)*TAU));
 
                     t += increment;
                 }
