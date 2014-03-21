@@ -216,9 +216,9 @@ class Game
                 float nd = numeric_limits<float>::max();
                 for(Zone* zone : zones)
                 {
-                    if(drone->distance_direction_point(zone) < md)
+                    if(drone->distance_direction_point(zone) <= Zone::RADIUS && drone->distance(zone) < md)
                     {
-                        md = drone->distance_direction_point(zone);
+                        md = drone->distance(zone);
                         mz = zone;
                     }
                     if(drone->distance(zone) < nd)
