@@ -94,6 +94,7 @@ struct Zone : public Point
 
     int team;
     float occupation_score;
+    float danger_score;
     int id;
 
     Zone(int id_, int x_, int y_) : occupation_score(1), id(id_)
@@ -102,20 +103,25 @@ struct Zone : public Point
         y = y_;
     }
 
-    void update()
+    void update(int my_team)
     {
+        danger_score = 0;
+
         float score_by_team[4] = {0, 0, 0, 0};
         for(auto it = drones_sorted.begin(); it != drones_sorted.end(); it++)
         {
             float d = distance(*it);
             score_by_team[(*it)->team] += (d <= RADIUS) ? 1 : (RADIUS / d);
         }
-        float best_score = score_by_team[0];
-        for(unsigned char i = 1; i < 4; i++)
+        float best_score = numeric_limits<float>::max();
+        for(unsigned char i = 0; i < 4; i++)
         {
             if(score_by_team[i] > best_score)
                 best_score = score_by_team[i];
+            if(score_by_team[i] > danger_score && i != my_team)
+                danger_score = score_by_team[i];
         }
+        danger_score -= score_by_team[my_team];
             
         occupation_score = OCCUPATION_SCORE_TAU*occupation_score + (1.f - OCCUPATION_SCORE_TAU)*best_score;
 
@@ -227,7 +233,7 @@ class Game
         }
 
         for(Zone* zone : zones)
-            zone->update();
+            zone->update(my_team);
     }
 
     private: // AI BEGIN
@@ -444,17 +450,19 @@ class Game
             if(! found)
             {
                 Zone* best_zone = zones[0];
-                float best_score = numeric_limits<float>::max();
+                float best_score = numeric_limits<float>::min();
                 for(Zone* z : zones)
                 {
-                    float score = int(z->team == my_team)*10000 + z->distance(drones[i]);
-                    if(score < best_score)
+                    if(z->team != my_team)
+                        continue;
+                    float score = z->danger_score / z->distance(drones[i]);
+                    if(score > best_score)
                     {
                         best_zone = z;
                         best_score = score;
                     }
                 }
-                cerr << "[Warning] Drone " << i << " have nothing to do." << endl;
+                cerr << "[Info] Drone " << i << " had nothing to do." << endl;
                 cout << best_zone->x << " " << best_zone->y << endl;
             }
         }
@@ -482,4 +490,4 @@ const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
 const int Game::NB_TURNS = 200;
-const float Game::TAU = -0.2;
+const float Game::TAU = -0.1;
