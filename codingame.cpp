@@ -55,10 +55,9 @@ class Drone : public Point
     int team;
     int old_x, old_y;
     Zone* going_to;
-    Zone* inside;
     Zone* nearest;
 
-    Drone(int id_, int team_) : id(id_), team(team_), old_x(-1), going_to(NULL), inside(NULL)
+    Drone(int id_, int team_) : id(id_), team(team_), old_x(-1), going_to(NULL)
     {
     }
 
@@ -98,7 +97,6 @@ class Zone : public Point
     static const int RADIUS;
     static const float OCCUPATION_SCORE_TAU;
 
-    vector<Drone*> drones_going;
     vector<Drone*> drones_sorted;
 
     int team;
@@ -113,14 +111,20 @@ class Zone : public Point
 
     void update()
     {
-        unsigned char drones_inside_by_team[4] = {0, 0, 0, 0};
-        unsigned char drones_inside = 0;
-        for(auto it = drones_sorted.begin(); it != drones_sorted.end() && distance(*it) <= RADIUS; it++)
+        float score_by_team[4] = {0, 0, 0, 0};
+        for(auto it = drones_sorted.begin(); it != drones_sorted.end(); it++)
         {
-            if(++drones_inside_by_team[(*it)->team] > drones_inside)
-                drones_inside++;
+            float d = distance(*it);
+            score_by_team[(*it)->team] += (d <= RADIUS) ? 1 : (RADIUS / d);
         }
-        occupation_score = OCCUPATION_SCORE_TAU*occupation_score + (1.f - OCCUPATION_SCORE_TAU)*drones_inside;
+        float best_score = score_by_team[0];
+        for(unsigned char i = 1; i < 4; i++)
+        {
+            if(score_by_team[i] > best_score)
+                best_score = score_by_team[i];
+        }
+            
+        occupation_score = OCCUPATION_SCORE_TAU*occupation_score + (1.f - OCCUPATION_SCORE_TAU)*best_score;
 
         bool moved;
         do
@@ -194,10 +198,7 @@ class Game
 
         // update zones
         for(Zone* zone : zones)
-        {
             cin >> zone->team;
-            zone->drones_going.clear();
-        }
         
         // update drones
         for(vector<Drone*>* team : teams)
@@ -208,15 +209,12 @@ class Game
                 cin >> nx >> ny;
                 drone->update(nx, ny);
  
-                drone->inside = NULL;
                 Zone* mz = NULL;
                 float md = numeric_limits<float>::max();
                 Zone* nz = NULL;
                 float nd = numeric_limits<float>::max();
                 for(Zone* zone : zones)
                 {
-                    if(drone->distance(zone) <= Zone::RADIUS)
-                        drone->inside = zone;
                     if(drone->distance_direction_point(zone) < md)
                     {
                         md = drone->distance_direction_point(zone);
@@ -228,7 +226,6 @@ class Game
                         nz = zone;
                     }
                 }
-                mz->drones_going.push_back(drone);
                 drone->going_to = mz;
                 drone->nearest = nz;
             }
