@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <chrono>
 
+#define TIME_PROFILE
+//#define PRINT_TREE
+
 using namespace std;
 
 class Point
@@ -53,6 +56,7 @@ class Drone : public Point
     int old_x, old_y;
     Zone* going_to;
     Zone* inside;
+    Zone* nearest;
 
     Drone(int id_, int team_) : id(id_), team(team_), old_x(-1), going_to(NULL), inside(NULL)
     {
@@ -109,8 +113,13 @@ class Zone : public Point
 
     void update()
     {
+        unsigned char drones_inside_by_team[4] = {0, 0, 0, 0};
         unsigned char drones_inside = 0;
-        for(auto it = drones_sorted.begin(); it != drones_sorted.end() && distance(*it) <= RADIUS; it++, drones_inside++);
+        for(auto it = drones_sorted.begin(); it != drones_sorted.end() && distance(*it) <= RADIUS; it++)
+        {
+            if(++drones_inside_by_team[(*it)->team] > drones_inside)
+                drones_inside++;
+        }
         occupation_score = OCCUPATION_SCORE_TAU*occupation_score + (1.f - OCCUPATION_SCORE_TAU)*drones_inside;
 
         bool moved;
@@ -137,62 +146,31 @@ class Game
     public:
 
     static const chrono::milliseconds MAX_TIME;
-    static const float TAU;
+    static const int NB_TURNS;
 
     vector<Zone*> zones;
-    set<Zone*> main_zones;
     vector< vector<Drone*>* > teams;
     vector<Drone*> drones;
     int my_team;
     int nb_teams;
     int nb_drones;
-    unsigned int nb_zones;
+    int nb_zones;
     int turn;
     bool print_dump;
+    int nb_recurse;
+    int recurse_width;
+    chrono::time_point<chrono::steady_clock> recurse_time_start;
 
-    vector<Zone*> best_action;
-    float best_action_score;
-
-    unsigned int nb_evals;
-    chrono::time_point<chrono::steady_clock> turn_time_start;
-
-    Game(bool print_dump_) : turn(0), print_dump(print_dump_)
+    Game(bool print_dump_) : turn(0), print_dump(print_dump_), recurse_width(10)
     {
-        // paramètres
-
         cin >> nb_teams >> my_team >> nb_drones >> nb_zones;
 
-        // zones
-
-        for(unsigned char z = 0; z < nb_zones; ++z)
+        for(int z = 0; z < nb_zones; ++z)
         {
             int x, y;
             cin >> x >> y;
             zones.push_back(new Zone(z, x, y));
         }
-
-        // meilleur triangle
-
-        float best_score = numeric_limits<float>::max();
-        for(auto zi1 = zones.begin(); zi1 != zones.end(); zi1++)
-        for(auto zi2 = zi1 + 1; zi2 != zones.end(); zi2++)
-        for(auto zi3 = zi2 + 1; zi3 != zones.end(); zi3++)
-        {
-            float c1 = (*zi1)->distance(*zi2);
-            float c2 = (*zi2)->distance(*zi3);
-            float c3 = (*zi1)->distance(*zi3);
-            float score = c1 + c2 + c3 + 2*max(c1, max(c2, c3));
-            if(score < best_score)
-            {
-                main_zones.clear();
-                main_zones.insert(*zi1);
-                main_zones.insert(*zi2);
-                main_zones.insert(*zi3);
-                best_score = score;
-            }
-        }
-
-        // création des drones
 
         for(int p = 0; p < nb_teams; ++p)
         {
@@ -202,7 +180,6 @@ class Game
                 Drone* pt = new Drone(d, p);
                 dt->push_back(pt);
                 drones.push_back(pt);
-                best_action.push_back(NULL);
                 for(Zone* z : zones)
                     z->drones_sorted.push_back(pt);
             }
@@ -233,18 +210,26 @@ class Game
                 drone->inside = NULL;
                 Zone* mz = NULL;
                 float md = numeric_limits<float>::max();
+                Zone* nz = NULL;
+                float nd = numeric_limits<float>::max();
                 for(Zone* zone : zones)
                 {
                     if(drone->distance(zone) <= Zone::RADIUS)
                         drone->inside = zone;
-                    if(drone->distance_direction_point(zone) <= md)
+                    if(drone->distance_direction_point(zone) < md)
                     {
                         md = drone->distance_direction_point(zone);
                         mz = zone;
                     }
+                    if(drone->distance(zone) < nd)
+                    {
+                        nd = drone->distance(zone);
+                        nz = zone;
+                    }
                 }
                 mz->drones_going.push_back(drone);
                 drone->going_to = mz;
+                drone->nearest = nz;
             }
         }
 
@@ -254,36 +239,168 @@ class Game
 
     // AI BEGIN
     
-    inline void eval_action(vector<unsigned char>& drones_by_zones)
+    struct ZoneAction
     {
-        nb_evals++;
+        float absolute_score;
+        float relative_score;
+        Zone* zone;
+        vector<Drone*> drones;
 
-    }
-    
-    void find_best_action(vector<unsigned char> drones_by_zones, unsigned char s)
-    {
-        if(drones_by_zones.size() == nb_zones - 1)
+        ZoneAction(float as, float rs, Zone* z) : absolute_score(as), relative_score(rs), zone(z)
         {
-            drones_by_zones.push_back(s);
-            eval_action(drones_by_zones);
-            return;
         }
 
-        for(unsigned char i = 0; i <= s; i++)
+        ZoneAction() : absolute_score(0), relative_score(0)
         {
-            vector<unsigned char> dbz = drones_by_zones;
-            dbz.push_back(i);
-            find_best_action(dbz, s - i);
         }
-    }
+
+        inline bool operator<(const ZoneAction& other) const
+        {
+            return relative_score < other.relative_score;
+        }
+    };
+
+    struct Action
+    {
+        float score;
+        vector<pair<Drone*, Zone*> > moves;
+
+        Action() : score(0)
+        {
+        }
+    };
     
+    Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
+    {
+#ifdef TIME_PROFILE
+        if(available_zones.empty() || available_drones.empty() || chrono::steady_clock::now() - recurse_time_start > MAX_TIME) return Action();
+#else
+        if(available_zones.empty() || available_drones.empty()) return Action();
+#endif
+
+       nb_recurse++;
+
+        priority_queue<ZoneAction> actions;
+
+        for(Zone* zone : available_zones)
+        {
+            // calculate the actions
+
+            float last_score = 0;
+            for(unsigned char my_count_max = 0; my_count_max <= available_drones.size(); my_count_max++)
+            {
+                float score = 0;
+                bool is_mine = (my_team == zone->team);
+
+                auto drones_iter = zone->drones_sorted.begin();
+
+                unsigned char my_count = 0;
+                unsigned char foe_count = 0;
+                unsigned char foe_count_table[4] = {0, 0, 0, 0};
+
+                int t = 1;
+
+                while(t < NB_TURNS)
+                {
+                    int dist = t * Drone::SPEED + Zone::RADIUS;
+                    float min_dist = 1000000000;
+
+                    while(drones_iter != zone->drones_sorted.end() && (min_dist = (*drones_iter)->distance(zone)) <= dist)
+                    {
+                        if((*drones_iter)->team == my_team)
+                        {
+                            if(my_count < my_count_max && available_drones.count(*drones_iter))
+                                my_count++;
+                        }
+                        else
+                        {
+                            if(((*drones_iter)->going_to == zone || (*drones_iter)->nearest == zone) && ++foe_count_table[(*drones_iter)->team] > foe_count)
+                                foe_count++;
+                        }
+                        drones_iter++;
+                    }
+
+                    int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
+                    if(increment + t > NB_TURNS)
+                        increment = NB_TURNS - t;
+
+                    is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
+
+                    int nt = increment + t;
+                    score += int(is_mine)*(nt-t + (t*t-nt*nt)/float(2*NB_TURNS));
+
+                    t += increment;
+                }
+
+                if(score > last_score)
+                {
+                    last_score = score;
+                    ZoneAction za(score, score / float(my_count ? my_count : 0.1), zone);
+                    my_count = 0;
+                    for(auto j = zone->drones_sorted.begin(); j != zone->drones_sorted.end() && my_count < my_count_max; j++)
+                    {
+                        if((*j)->team == my_team && available_drones.count(*j))
+                        {
+                            my_count++;
+                            za.drones.push_back(*j);
+                        }
+                    }
+                    actions.push(za);
+                }
+                // For speed !
+                if(is_mine)
+                    break;
+            }
+
+        }
+
+        Action best_action = Action();
+        int i = 0;
+        while((! actions.empty()) && i < recurse_width)
+        {
+            i++;
+
+            ZoneAction action = actions.top();
+            actions.pop();
+
+            set<Zone*> sub_available_zones = available_zones;
+            sub_available_zones.erase(action.zone);
+
+            set<Drone*> sub_available_drones = available_drones;
+            for(Drone* j : action.drones)
+                sub_available_drones.erase(j);
+
+#ifdef PRINT_TREE
+            for(unsigned char tr = available_zones.size(); tr < zones.size(); tr++)
+                cout << " ";
+            cout << "> " << action.zone->id << " <- " << action.drones.size() << ", " << action.absolute_score << endl;
+#endif
+            Action subaction = recurse(sub_available_zones, sub_available_drones);
+
+            subaction.score += action.absolute_score;
+
+#ifdef PRINT_TREE
+            for(unsigned char tr = available_zones.size(); tr < zones.size(); tr++)
+                cout << " ";
+            cout << "< " << subaction.score << endl;
+#endif
+
+            if(subaction.score > best_action.score)
+            {
+                best_action = subaction;
+                for(Drone* j: action.drones)
+                    best_action.moves.push_back(pair<Drone*, Zone*>(j, action.zone));
+            }
+        }
+
+        return best_action;
+    }
+
     void play()
     {
-        turn_time_start = chrono::steady_clock::now();
-
-        best_action_score = numeric_limits<float>::max();
-        nb_evals = 0;
-        find_best_action(vector<unsigned char>(), nb_drones);
+        nb_recurse = 0;
+        recurse_time_start = chrono::steady_clock::now();
+        Action result = recurse(set<Zone*>(zones.begin(), zones.end()), set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()));
 
         if(print_dump)
         {
@@ -301,10 +418,49 @@ class Game
             cerr << "---- END DUMP ----" << endl << endl;
         }
 
-        cerr << "[Info] nb_evals = " << nb_evals << ", time = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - turn_time_start).count() << " ms" << endl;
+#ifdef TIME_PROFILE
+        if(chrono::steady_clock::now() - recurse_time_start > MAX_TIME)
+        {
+            if(recurse_width > 5)
+                recurse_width = 5;
+            else if(recurse_width > 2)
+                recurse_width--;
+            cerr << "[Warning] Too long. recurse_width decreased." << endl;
+        }
+        else
+            recurse_width++;
+#endif
 
-        for(Zone* zone : best_action)
-            cout << zone->x << " " << zone->y << endl;
+        for(int i = 0; i < nb_drones; ++i)
+        {
+            bool found = false;
+            for(pair<Drone*, Zone*> p : result.moves)
+            {
+                if(p.first->id == i)
+                {
+                    cout << p.second->x << " " << p.second->y << endl;
+                    found = true;
+                    break;
+                }
+            }
+            if(! found)
+            {
+                Zone* best_zone = zones[0];
+                float best_score = numeric_limits<float>::max();
+                for(Zone* z : zones)
+                {
+                    float score = int(z->team == my_team)*10000 + z->distance(drones[i]);
+                    if(score < best_score)
+                    {
+                        best_zone = z;
+                        best_score = score;
+                    }
+                }
+                cerr << "[Warning] Drone " << i << " have nothing to do." << endl;
+                cout << best_zone->x << " " << best_zone->y << endl;
+            }
+        }
+        cerr << "[Info] nb_recurse = " << nb_recurse << ", recurse_width = " << recurse_width << ", time = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - recurse_time_start).count() << " ms" << endl;
     }
 };
 
@@ -327,4 +483,4 @@ const int Zone::RADIUS = 100;
 const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
-const float Game::TAU = 0.02;
+const int Game::NB_TURNS = 200;
