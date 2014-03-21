@@ -147,6 +147,7 @@ class Game
 
     static const chrono::milliseconds MAX_TIME;
     static const int NB_TURNS;
+    static const float TAU;
 
     vector<Zone*> zones;
     vector< vector<Drone*>* > teams;
@@ -282,7 +283,8 @@ class Game
 
         priority_queue<ZoneAction> actions;
 
-        int mt = NB_TURNS - turn;
+        int turns_to_simulate = NB_TURNS - turn;
+
         for(Zone* zone : available_zones)
         {
             // calculate the actions
@@ -301,7 +303,7 @@ class Game
 
                 int t = 1;
 
-                while(t < mt)
+                while(t < turns_to_simulate)
                 {
                     int dist = t * Drone::SPEED + Zone::RADIUS;
                     float min_dist = 1000000000;
@@ -322,14 +324,12 @@ class Game
                     }
 
                     int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
-                    if(increment + t > mt)
-                        increment = mt - t;
+                    if(increment + t > turns_to_simulate)
+                        increment = turns_to_simulate - t;
 
                     is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
 
-                    int nt = increment + t;
-                    score += int(is_mine)*(nt-t + (t*t-nt*nt)/float(2*mt));
-                    //*(exp(-t*TAU) - exp(-(t+increment)*TAU));
+                    score += int(is_mine)*(exp(t*TAU) - exp((t+increment)*TAU));
 
                     t += increment;
                 }
@@ -349,7 +349,9 @@ class Game
                     }
                     actions.push(za);
                 }
+
                 // For speed !
+                // If we have more drones going to this zone, it will be completely useless as it is already to us at the end.
                 if(is_mine)
                     break;
             }
@@ -486,3 +488,4 @@ const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
 const int Game::NB_TURNS = 200;
+const float Game::TAU = -0.1;
