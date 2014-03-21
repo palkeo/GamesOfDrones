@@ -11,10 +11,8 @@
 
 using namespace std;
 
-class Point
+struct Point
 {
-    public:
-
     int x;
     int y;
 
@@ -44,10 +42,8 @@ class Point
 
 class Zone;
 
-class Drone : public Point
+struct Drone : public Point
 {
-    public:
-
     static const int SPEED;
 
     int id;
@@ -89,10 +85,8 @@ class Drone : public Point
     }
 };
 
-class Zone : public Point
+struct Zone : public Point
 {
-    public:
-
     static const int RADIUS;
     static const float OCCUPATION_SCORE_TAU;
 
@@ -146,11 +140,7 @@ class Zone : public Point
 
 class Game
 {
-    public:
-
-    static const chrono::milliseconds MAX_TIME;
-    static const int NB_TURNS;
-    static const float TAU;
+    private:
 
     vector<Zone*> zones;
     vector< vector<Drone*>* > teams;
@@ -164,6 +154,12 @@ class Game
     int nb_recurse;
     int recurse_width;
     chrono::time_point<chrono::steady_clock> recurse_time_start;
+
+    public:
+
+    static const chrono::milliseconds MAX_TIME;
+    static const int NB_TURNS;
+    static const float TAU;
 
     Game(bool print_dump_) : turn(0), print_dump(print_dump_), recurse_width(10)
     {
@@ -234,7 +230,7 @@ class Game
             zone->update();
     }
 
-    // AI BEGIN
+    private: // AI BEGIN
     
     struct ZoneAction
     {
@@ -395,6 +391,8 @@ class Game
 
         return best_action;
     }
+
+    public:
 
     void play()
     {
