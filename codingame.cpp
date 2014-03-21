@@ -4,7 +4,6 @@
 #include <limits>
 #include <queue>
 #include <set>
-#include <algorithm>
 #include <chrono>
 
 #define TIME_PROFILE
@@ -435,7 +434,7 @@ class Game
         for(int i = 0; i < nb_drones; ++i)
         {
             bool found = false;
-            for(pair<Drone*, Zone*> p : result.moves)
+            for(pair<Drone*, Zone*>& p : result.moves)
             {
                 if(p.first->id == i)
                 {
