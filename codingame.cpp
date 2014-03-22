@@ -450,7 +450,7 @@ class Game
             if(! found)
             {
                 Zone* best_zone = zones[0];
-                float best_score = numeric_limits<float>::min();
+                float best_score = numeric_limits<float>::lowest();
                 for(Zone* z : zones)
                 {
                     if(z->team != my_team)
