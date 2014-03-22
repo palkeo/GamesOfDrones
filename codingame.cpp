@@ -490,4 +490,4 @@ const float Zone::OCCUPATION_SCORE_TAU = 0.99;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
 const int Game::NB_TURNS = 200;
-const double Game::TAU = -0.4;
+const double Game::TAU = -0.3;
