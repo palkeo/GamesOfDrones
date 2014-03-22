@@ -24,7 +24,7 @@ struct Point
     {
     }
 
-    float distance(const Point other) const
+    float distance(const Point& other) const
     {
         float dx = x - other.x;
         float dy = y - other.y;
