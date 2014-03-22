@@ -24,7 +24,7 @@ struct Point
     {
     }
 
-    float distance(const Point other) const
+    float distance(const Point& other) const
     {
         float dx = x - other.x;
         float dy = y - other.y;
@@ -83,6 +83,15 @@ struct Drone : public Point
         float dy = old_y + u*(y-old_y) - point->y;
         return sqrt(dx*dx + dy*dy);
     }
+
+    float distance_malus(const Point* other, int my_team) const
+    {
+        float d = distance(other);
+        if(d >= SPEED && team != my_team && going_to != (Zone*)other)
+            d-= SPEED;
+        return d;
+    }
+ 
 };
 
 struct Zone : public Point
@@ -131,7 +140,7 @@ struct Zone : public Point
             moved = false;
             for(unsigned char i = 1; i < drones_sorted.size(); i++)
             {
-                if(distance(drones_sorted[i-1]) > distance(drones_sorted[i]))
+                if(drones_sorted[i-1]->distance_malus(this, my_team) > drones_sorted[i]->distance_malus(this, my_team))
                 {
                     Drone* t = drones_sorted[i-1];
                     drones_sorted[i-1] = drones_sorted[i];
@@ -306,7 +315,7 @@ class Game
                     int dist = t * Drone::SPEED + Zone::RADIUS;
                     float min_dist = 1000000000;
 
-                    while(drones_iter != zone->drones_sorted.end() && (min_dist = (*drones_iter)->distance(zone)) <= dist)
+                    while(drones_iter != zone->drones_sorted.end() && (min_dist = (*drones_iter)->distance_malus(zone, my_team)) <= dist)
                     {
                         if((*drones_iter)->team == my_team)
                         {
