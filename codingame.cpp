@@ -159,6 +159,7 @@ class Game
     bool print_dump;
     int nb_recurse;
     int recurse_width;
+    unsigned int scores[4];
     chrono::time_point<chrono::steady_clock> recurse_time_start;
 
     public:
@@ -167,7 +168,7 @@ class Game
     static const int NB_TURNS;
     static const double TAU;
 
-    Game(bool print_dump_) : turn(0), print_dump(print_dump_), recurse_width(10)
+    Game(bool print_dump_) : turn(0), print_dump(print_dump_), recurse_width(10), scores{1, 1, 1, 1}
     {
         cin >> nb_teams >> my_team >> nb_drones >> nb_zones;
 
@@ -199,7 +200,11 @@ class Game
 
         // update zones
         for(Zone* zone : zones)
+        {
             cin >> zone->team;
+            if(zone->team != -1)
+                scores[zone->team]++;
+        }
         
         // update drones
         for(vector<Drone*>* team : teams)
@@ -249,7 +254,7 @@ class Game
         {
         }
 
-        ZoneAction() : absolute_score(0), relative_score(0)
+        ZoneAction() : absolute_score(numeric_limits<double>::lowest()), relative_score(numeric_limits<double>::lowest())
         {
         }
 
@@ -264,7 +269,7 @@ class Game
         double score;
         vector<pair<Drone*, Zone*> > moves;
 
-        Action() : score(0)
+        Action(double s) : score(s)
         {
         }
     };
@@ -272,32 +277,39 @@ class Game
     Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
     {
 #ifdef TIME_PROFILE
-        if(available_zones.empty() || available_drones.empty() || chrono::steady_clock::now() - recurse_time_start > MAX_TIME) return Action();
+        if(available_zones.empty() || chrono::steady_clock::now() - recurse_time_start > MAX_TIME) return Action(0);
 #else
-        if(available_zones.empty() || available_drones.empty()) return Action();
+        if(available_zones.empty()) return Action(0);
 #endif
 
-       nb_recurse++;
+        nb_recurse++;
 
         priority_queue<ZoneAction> actions;
 
         int turns_to_simulate = NB_TURNS - turn;
 
-        for(Zone* zone : available_zones)
+
+        auto zone_it_end = available_zones.end();
+        if(available_drones.empty())
         {
+            zone_it_end = available_zones.begin();
+            ++zone_it_end;
+        }
+        for(auto zone_it = available_zones.begin(); zone_it != zone_it_end; zone_it++)
+        {
+            Zone* zone = *zone_it;
+
             // calculate the actions
 
-            double last_score = 0;
+            double last_score = numeric_limits<double>::lowest();
             for(unsigned char my_count_max = 0; my_count_max <= available_drones.size(); my_count_max++)
             {
-                double score = 0;
-                bool is_mine = (my_team == zone->team);
+                double pscores[4] = {0, 0, 0, 0};
+                char belongs_to_team = zone->team;
 
                 auto drones_iter = zone->drones_sorted.begin();
 
-                unsigned char my_count = 0;
-                unsigned char foe_count = 0;
-                unsigned char foe_count_table[4] = {0, 0, 0, 0};
+                unsigned char count_table[4] = {0, 0, 0, 0};
 
                 int t = 1;
 
@@ -310,13 +322,13 @@ class Game
                     {
                         if((*drones_iter)->team == my_team)
                         {
-                            if(my_count < my_count_max && available_drones.count(*drones_iter))
-                                my_count++;
+                            if(count_table[my_team] < my_count_max && available_drones.count(*drones_iter))
+                                count_table[my_team]++;
                         }
                         else
                         {
-                            if(((*drones_iter)->going_to == zone || (*drones_iter)->nearest == zone) && ++foe_count_table[(*drones_iter)->team] > foe_count)
-                                foe_count++;
+                            if(((*drones_iter)->going_to == zone || (*drones_iter)->nearest == zone))
+                                count_table[(*drones_iter)->team]++;
                         }
                         drones_iter++;
                     }
@@ -325,18 +337,44 @@ class Game
                     if(increment + t > turns_to_simulate)
                         increment = turns_to_simulate - t;
 
-                    is_mine = my_count > foe_count || (my_count == foe_count && is_mine);
+                    for(unsigned char i = 0; i < nb_teams; i++)
+                    {
+                        if(belongs_to_team == -1)
+                        {
+                            if(count_table[i])
+                                belongs_to_team = i;
+                        }
+                        else if(count_table[i] > count_table[belongs_to_team])
+                            belongs_to_team = i;
+                    }
 
-                    score += int(is_mine)*(exp(t*TAU) - exp((t+increment)*TAU));
+                    if(belongs_to_team != -1)
+                        pscores[belongs_to_team] += (exp(t*TAU) - exp((t+increment)*TAU));
 
                     t += increment;
+                }
+
+                double score = pscores[my_team];
+                if(nb_teams > 2)
+                {
+                    unsigned int sum_scores = 0;
+                    for(unsigned char i = 0; i < nb_teams; i++)
+                    {
+                        if(i != my_team)
+                            sum_scores += scores[i];
+                    }
+                    for(unsigned char i = 0; i < nb_teams; i++)
+                    {
+                        if(i != my_team)
+                            score -= pscores[i] * double(scores[i]) / double(sum_scores);
+                    }
                 }
 
                 if(score > last_score)
                 {
                     last_score = score;
-                    ZoneAction za(score, score / double(my_count ? my_count : 0.1), zone);
-                    my_count = 0;
+                    ZoneAction za(score, score / double(count_table[my_team] ? count_table[my_team] : 0.1), zone);
+                    unsigned char my_count = 0;
                     for(auto j = zone->drones_sorted.begin(); j != zone->drones_sorted.end() && my_count < my_count_max; j++)
                     {
                         if((*j)->team == my_team && available_drones.count(*j))
@@ -350,13 +388,13 @@ class Game
 
                 // For speed !
                 // If we have more drones going to this zone, it will be completely useless as it is already to us at the end.
-                if(is_mine)
+                if(belongs_to_team == my_team)
                     break;
             }
 
         }
 
-        Action best_action = Action();
+        Action best_action = Action(numeric_limits<double>::lowest());
         int i = 0;
         while((! actions.empty()) && i < recurse_width)
         {
@@ -450,7 +488,7 @@ class Game
             if(! found)
             {
                 Zone* best_zone = zones[0];
-                float best_score = numeric_limits<float>::min();
+                float best_score = numeric_limits<float>::lowest();
                 for(Zone* z : zones)
                 {
                     if(z->team != my_team)
