@@ -16,13 +16,9 @@ struct Point
     int x;
     int y;
 
-    Point() : x(0), y(0)
-    {
-    }
+    Point() : x(0), y(0) {}
 
-    Point(int x_, int y_) : x(x_), y(y_)
-    {
-    }
+    Point(int x_, int y_) : x(x_), y(y_) {}
 
     float distance(const Point& other) const
     {
@@ -52,9 +48,7 @@ struct Drone : public Point
     Zone* going_to;
     Zone* nearest;
 
-    Drone(int id_, int team_) : id(id_), team(team_), old_x(-1), going_to(NULL)
-    {
-    }
+    Drone(int id_, int team_) : id(id_), team(team_), old_x(-1), going_to(NULL) {}
 
     void update(int nx, int ny)
     {
