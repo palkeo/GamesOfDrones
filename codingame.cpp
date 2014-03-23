@@ -271,7 +271,7 @@ class Game
         if(available_zones.empty() || available_drones.empty()) return Action();
 #endif
 
-       nb_recurse++;
+        nb_recurse++;
 
         priority_queue<ZoneAction> actions;
 
@@ -443,21 +443,26 @@ class Game
             }
             if(! found)
             {
-                Zone* best_zone = zones[0];
-                float best_score = numeric_limits<float>::lowest();
-                for(Zone* z : zones)
+                auto cmp_func = [&] (Zone* a, Zone* b) { return a->distance(drones[i]) > b->distance(drones[i]); };
+                std::priority_queue<Zone*, vector<Zone*>, decltype(cmp_func)> q(cmp_func);
+
+                for(Zone* zone : zones)
                 {
-                    if(z->team != my_team)
-                        continue;
-                    float score = z->danger_score / z->distance(drones[i]);
-                    if(score > best_score)
-                    {
-                        best_zone = z;
-                        best_score = score;
-                    }
+                    if(zone->team == my_team)
+                        q.push(zone);
                 }
+                if(q.size() < 2)
+                {
+                    for(Zone* zone : zones)
+                        q.push(zone);
+                }
+
+                Zone* z1 = q.top();
+                q.pop();
+                Zone* z2 = q.top();
+
                 cerr << "[Info] Drone " << i << " had nothing to do." << endl;
-                cout << best_zone->x << " " << best_zone->y << endl;
+                cout << ((z1->x + z2->x)/2) << " " << ((z1->y + z2->y)/2) << endl;
             }
         }
         cerr << "[Info] nb_recurse = " << nb_recurse << ", recurse_width = " << recurse_width << ", time = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - recurse_time_start).count() << " ms" << endl;
