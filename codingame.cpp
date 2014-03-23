@@ -315,7 +315,7 @@ class Game
                         drones_iter++;
                     }
 
-                    int increment = ceil((min_dist - Zone::RADIUS) / float(Drone::SPEED));
+                    int increment = ceil((min_dist - dist) / float(Drone::SPEED));
                     if(increment + t > turns_to_simulate)
                         increment = turns_to_simulate - t;
 
