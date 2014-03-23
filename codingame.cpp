@@ -259,9 +259,9 @@ class Game
     Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
     {
 #ifdef TIME_PROFILE
-        if(available_zones.empty() || available_drones.empty() || chrono::steady_clock::now() - recurse_time_start > MAX_TIME) return Action();
+        if(available_zones.empty() || chrono::steady_clock::now() - recurse_time_start > MAX_TIME) return Action();
 #else
-        if(available_zones.empty() || available_drones.empty()) return Action();
+        if(available_zones.empty()) return Action();
 #endif
 
         nb_recurse++;
@@ -275,7 +275,7 @@ class Game
             // calculate the actions
 
             double last_score = 0;
-            for(unsigned char my_count_max = 0; my_count_max <= available_drones.size(); my_count_max++)
+            for(unsigned char my_count_max = int(! available_drones.empty()); my_count_max <= available_drones.size(); my_count_max++)
             {
                 double score = 0;
                 bool is_mine = (my_team == zone->team);
