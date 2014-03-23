@@ -234,22 +234,17 @@ class Game
     
     struct ZoneAction
     {
-        double absolute_score;
-        double relative_score;
+        double score;
         Zone* zone;
         vector<Drone*> drones;
 
-        ZoneAction(double as, double rs, Zone* z) : absolute_score(as), relative_score(rs), zone(z)
-        {
-        }
+        ZoneAction(double s, Zone* z) : score(s), zone(z) {}
 
-        ZoneAction() : absolute_score(0), relative_score(0)
-        {
-        }
+        ZoneAction() : score(0) {}
 
         inline bool operator<(const ZoneAction& other) const
         {
-            return relative_score < other.relative_score;
+            return score < other.score;
         }
     };
 
@@ -258,9 +253,7 @@ class Game
         double score;
         vector<pair<Drone*, Zone*> > moves;
 
-        Action() : score(0)
-        {
-        }
+        Action() : score(0) {}
     };
     
     Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
@@ -329,7 +322,7 @@ class Game
                 if(score > last_score)
                 {
                     last_score = score;
-                    ZoneAction za(score, score / double(my_count ? my_count : 0.1), zone);
+                    ZoneAction za(score, zone);
                     my_count = 0;
                     for(auto j = zone->drones_sorted.begin(); j != zone->drones_sorted.end() && my_count < my_count_max; j++)
                     {
@@ -373,7 +366,7 @@ class Game
 #endif
             Action subaction = recurse(sub_available_zones, sub_available_drones);
 
-            subaction.score += action.absolute_score;
+            subaction.score += action.score;
 
 #ifdef PRINT_TREE
             for(unsigned char tr = available_zones.size(); tr < zones.size(); tr++)
