@@ -392,6 +392,33 @@ class Game
         return best_action;
     }
 
+    void move_drone(Drone* drone)
+    {
+        auto cmp_func = [&] (Zone* a, Zone* b) { return a->distance(drone) > b->distance(drone); };
+        std::priority_queue<Zone*, vector<Zone*>, decltype(cmp_func)> q(cmp_func);
+
+        for(Zone* zone : zones)
+        {
+            if(zone->team == my_team)
+                q.push(zone);
+        }
+        if(q.size() < 2)
+        {
+            for(Zone* zone : zones)
+                q.push(zone);
+        }
+
+        Zone* z1 = q.top();
+        q.pop();
+        Zone* z2 = q.top();
+        cout << ((z1->x + z2->x)/2) << " " << ((z1->y + z2->y)/2) << endl;
+    }
+
+    void move_drone(Drone* drone, Zone* zone)
+    {
+        cout << zone->x << " " << zone->y << endl;
+    }
+
     public:
 
     void play()
@@ -436,33 +463,16 @@ class Game
             {
                 if(p.first->id == i)
                 {
-                    cout << p.second->x << " " << p.second->y << endl;
+                    move_drone(drones[i], p.second);
                     found = true;
                     break;
                 }
             }
             if(! found)
             {
-                auto cmp_func = [&] (Zone* a, Zone* b) { return a->distance(drones[i]) > b->distance(drones[i]); };
-                std::priority_queue<Zone*, vector<Zone*>, decltype(cmp_func)> q(cmp_func);
-
-                for(Zone* zone : zones)
-                {
-                    if(zone->team == my_team)
-                        q.push(zone);
-                }
-                if(q.size() < 2)
-                {
-                    for(Zone* zone : zones)
-                        q.push(zone);
-                }
-
-                Zone* z1 = q.top();
-                q.pop();
-                Zone* z2 = q.top();
 
                 cerr << "[Info] Drone " << i << " had nothing to do." << endl;
-                cout << ((z1->x + z2->x)/2) << " " << ((z1->y + z2->y)/2) << endl;
+                move_drone(drones[i]);
             }
         }
         cerr << "[Info] nb_recurse = " << nb_recurse << ", recurse_width = " << recurse_width << ", time = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - recurse_time_start).count() << " ms" << endl;
