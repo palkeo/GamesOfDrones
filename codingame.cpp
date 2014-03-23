@@ -161,7 +161,7 @@ class Game
     static const int NB_TURNS;
     static const double TAU;
 
-    Game(bool print_dump_) : turn(0), print_dump(print_dump_), recurse_width(10)
+    Game(bool print_dump_) : turn(0), print_dump(print_dump_), recurse_width(40)
     {
         cin >> nb_teams >> my_team >> nb_drones >> nb_zones;
 
@@ -352,7 +352,7 @@ class Game
 
         Action best_action = Action();
         int i = 0;
-        while((! actions.empty()) && i < recurse_width)
+        while((! actions.empty()) && i < recurse_width / 4)
         {
             i++;
 
@@ -446,10 +446,10 @@ class Game
 #ifdef TIME_PROFILE
         if(chrono::steady_clock::now() - recurse_time_start > MAX_TIME)
         {
-            if(recurse_width > 5)
-                recurse_width = 5;
-            else if(recurse_width > 2)
-                recurse_width--;
+            if(recurse_width > 20)
+                recurse_width = 20;
+            else if(recurse_width > 8)
+                recurse_width-=4;
             cerr << "[Warning] Too long. recurse_width decreased." << endl;
         }
         else
