@@ -252,7 +252,7 @@ class Game
             // calculate the actions
 
             double last_score = 0;
-            for(unsigned char my_count_max = int(! available_drones.empty()); my_count_max <= min(available_drones.size(), (size_t)ceil(nb_drones / 2.f)); my_count_max++)
+            for(unsigned char my_count_max = int(! available_drones.empty()); my_count_max <= min(available_drones.size(), (size_t)ceil(nb_drones * nb_teams / float(nb_zones))); my_count_max++)
             {
                 double score = 0;
                 bool is_mine = (my_team == zone->team);
