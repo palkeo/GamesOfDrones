@@ -46,10 +46,9 @@ struct Drone : public Point
     int team;
     int old_x, old_y;
     Zone* going_to;
-    Zone* old_going_to;
     Zone* nearest;
 
-    Drone(int id_, int team_) : id(id_), team(team_), old_x(-1), going_to(NULL), old_going_to(NULL) {}
+    Drone(int id_, int team_) : id(id_), team(team_), old_x(-1), going_to(NULL) {}
 
     void update(int nx, int ny)
     {
@@ -222,7 +221,6 @@ class Game
                         nz = zone;
                     }
                 }
-                drone->old_going_to = drone->going_to;
                 drone->going_to = mz;
                 drone->nearest = nz;
             }
@@ -304,7 +302,7 @@ class Game
                         }
                         else
                         {
-                            if(((*drones_iter)->going_to == zone || (*drones_iter)->old_going_to == zone || (*drones_iter)->nearest == zone) && ++foe_count_table[(*drones_iter)->team] > foe_count)
+                            if(((*drones_iter)->going_to == zone || (*drones_iter)->nearest == zone) && ++foe_count_table[(*drones_iter)->team] > foe_count)
                                 foe_count++;
                         }
                         drones_iter++;
