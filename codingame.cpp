@@ -123,7 +123,6 @@ class Game
     vector<Zone*> zones;
     vector< vector<Drone*>* > teams;
     vector<Drone*> drones;
-    map<Drone*, Zone*> foe_drones_orders;
     int my_team;
     int nb_teams;
     int nb_drones;
@@ -280,16 +279,8 @@ class Game
                         }
                         else
                         {
-                            if(team != my_team)
-                            {
-                                if(((*drones_iter)->nearest == zone || (*drones_iter)->going_to == zone) && ++foe_count_table[(*drones_iter)->team] > foe_count)
-                                    foe_count++;
-                            }
-                            else
-                            {
-                                if(((*drones_iter)->nearest == zone || (*drones_iter)->going_to == zone || foe_drones_orders[*drones_iter] == zone) && ++foe_count_table[(*drones_iter)->team] > foe_count)
-                                    foe_count++;
-                            }
+                            if(((*drones_iter)->nearest == zone || (*drones_iter)->going_to == zone) && ++foe_count_table[(*drones_iter)->team] > foe_count)
+                                foe_count++;
                         }
                         drones_iter++;
                     }
@@ -404,16 +395,6 @@ class Game
     {
         nb_recurse = 0;
         recurse_time_start = chrono::steady_clock::now();
-        foe_drones_orders.clear();
-        for(char i = 0; i < nb_teams; i++)
-        {
-            if(i != my_team)
-            {
-                Action result = recurse(set<Zone*>(zones.begin(), zones.end()), set<Drone*>(teams[i]->begin(), teams[i]->end()), i);
-                for(auto it = result.moves.begin(); it != result.moves.end(); it++)
-                    foe_drones_orders[it->first] = it->second;
-            }
-        }
         Action result = recurse(set<Zone*>(zones.begin(), zones.end()), set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()), my_team);
 
         if(print_dump)
