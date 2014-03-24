@@ -4,7 +4,7 @@ using namespace std;
 
 int main()
 {
-    double t = 0.3;
+    double t = 0.7;
     unsigned int i = 0;
     double a, b;
     do

@@ -245,7 +245,7 @@ class Game
 
         priority_queue<ZoneAction> actions;
 
-        int turns_to_simulate = NB_TURNS - turn;
+        int turns_to_simulate = min(NB_TURNS - turn, 100);
 
         for(Zone* zone : available_zones)
         {
@@ -461,4 +461,4 @@ const int Zone::RADIUS = 100;
 const int Drone::SPEED = 100;
 const chrono::milliseconds Game::MAX_TIME = chrono::milliseconds(90);
 const int Game::NB_TURNS = 202;
-const double Game::TAU = -0.3;
+const double Game::TAU = -0.7;
