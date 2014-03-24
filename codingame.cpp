@@ -233,7 +233,7 @@ class Game
         Action() : score(0) {}
     };
     
-    Action recurse(set<Zone*> available_zones, set<Drone*> available_drones, int team)
+    Action recurse(set<Zone*> available_zones, set<Drone*> available_drones)
     {
 #ifdef TIME_PROFILE
         if(available_zones.empty() || chrono::steady_clock::now() - recurse_time_start > MAX_TIME) return Action();
@@ -255,7 +255,7 @@ class Game
             for(unsigned char my_count_max = int(! available_drones.empty()); my_count_max <= min(available_drones.size(), (size_t)ceil(nb_drones / 2.f)); my_count_max++)
             {
                 double score = 0;
-                bool is_mine = (team == zone->team);
+                bool is_mine = (my_team == zone->team);
 
                 auto drones_iter = zone->drones_sorted.begin();
 
@@ -272,7 +272,7 @@ class Game
 
                     while(drones_iter != zone->drones_sorted.end() && (min_dist = (*drones_iter)->distance(zone)) <= dist)
                     {
-                        if((*drones_iter)->team == team)
+                        if((*drones_iter)->team == my_team)
                         {
                             if(my_count < my_count_max && available_drones.count(*drones_iter))
                                 my_count++;
@@ -303,7 +303,7 @@ class Game
                     my_count = 0;
                     for(auto j = zone->drones_sorted.begin(); j != zone->drones_sorted.end() && my_count < my_count_max; j++)
                     {
-                        if((*j)->team == team && available_drones.count(*j))
+                        if((*j)->team == my_team && available_drones.count(*j))
                         {
                             my_count++;
                             za.drones.push_back(*j);
@@ -341,7 +341,7 @@ class Game
                 cout << " ";
             cout << "> " << action.zone->id << " <- " << action.drones.size() << ", " << action.absolute_score << endl;
 #endif
-            Action subaction = recurse(sub_available_zones, sub_available_drones, team);
+            Action subaction = recurse(sub_available_zones, sub_available_drones);
 
             subaction.score += action.score;
 
@@ -395,7 +395,7 @@ class Game
     {
         nb_recurse = 0;
         recurse_time_start = chrono::steady_clock::now();
-        Action result = recurse(set<Zone*>(zones.begin(), zones.end()), set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()), my_team);
+        Action result = recurse(set<Zone*>(zones.begin(), zones.end()), set<Drone*>(teams[my_team]->begin(), teams[my_team]->end()));
 
         if(print_dump)
         {
