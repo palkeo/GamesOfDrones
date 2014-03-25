@@ -362,31 +362,44 @@ class Game
         return best_action;
     }
 
-    void move_drone(Drone* drone)
+    Point move_drone(Drone* drone)
     {
         auto cmp_func = [&] (Zone* a, Zone* b) { return a->distance(drone) > b->distance(drone); };
         std::priority_queue<Zone*, vector<Zone*>, decltype(cmp_func)> q(cmp_func);
+
+        size_t nbz = 2 + (drone->id % 2);
 
         for(Zone* zone : zones)
         {
             if(zone->team == my_team)
                 q.push(zone);
         }
-        if(q.size() < 2)
+        if(q.size() < nbz)
         {
             for(Zone* zone : zones)
-                q.push(zone);
+                if(zone->team != my_team)
+                    q.push(zone);
         }
 
-        Zone* z1 = q.top();
-        q.pop();
-        Zone* z2 = q.top();
-        cout << ((z1->x + z2->x)/2) << " " << ((z1->y + z2->y)/2) << endl;
+        int xs = 0;
+        int ys = 0;
+        for(size_t i = 0; i < nbz; i++)
+        {
+            xs += q.top()->x;
+            ys += q.top()->y;
+            q.pop();
+        }
+        return Point(xs/nbz, ys/nbz);
     }
 
-    void move_drone(Drone* drone, Zone* zone)
+    Point move_drone(Drone* drone, Zone* zone)
     {
-        cout << zone->x << " " << zone->y << endl;
+        if(zone->distance(drone) >= Zone::RADIUS)
+            return *zone;
+        Point o = move_drone(drone);
+        float d = zone->distance(o);
+        float s = Zone::RADIUS - 2.f - 2*(turn % 2);
+        return Point(zone->x + s*(o.x - zone->x)/d, zone->y + s*(o.y - zone->y)/d);
     }
 
     public:
@@ -433,10 +446,14 @@ class Game
             if(it == result.moves.end())
             {
                 cerr << "[Info] Drone " << i << " had nothing to do." << endl;
-                move_drone(drone);
+                Point p = move_drone(drone);
+                cout << p.x << " " << p.y << endl;
             }
             else
-                move_drone(drone, it->second);
+            {
+                Point p = move_drone(drone, it->second);
+                cout << p.x << " " << p.y << endl;
+            }
         }
         cerr << "[Info] nb_recurse = " << nb_recurse << ", recurse_width = " << recurse_width << ", time = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - recurse_time_start).count() << " ms" << endl;
     }
