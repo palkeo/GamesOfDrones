@@ -245,7 +245,7 @@ class Game
 
         priority_queue<ZoneAction> actions;
 
-        int turns_to_simulate = min(NB_TURNS - turn, 100);
+        int turns_to_simulate = NB_TURNS - turn;
 
         for(Zone* zone : available_zones)
         {
